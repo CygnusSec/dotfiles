@@ -1,4 +1,4 @@
-# Neovim
+# 💤 LazyVim
 
-Put the shared Neovim configuration in this directory. The installer links it
-to `~/.config/nvim` only after an `init.lua` or `init.vim` is present.
+A starter template for [LazyVim](https://github.com/LazyVim/LazyVim).
+Refer to the [documentation](https://lazyvim.github.io/installation) to get started.

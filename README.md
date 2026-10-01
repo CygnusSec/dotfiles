@@ -49,7 +49,7 @@ Choose exactly what to copy from the current machine into the repository:
 
 ```bash
 ./backup.sh                  # interactive selection
-./backup.sh zsh vscode       # selected common configuration
+./backup.sh zsh nvim vscode  # selected common configuration
 ./backup.sh brew             # Homebrew only on macOS
 ./backup.sh hypr waybar      # selected desktop config on Arch
 ./backup.sh all              # every item available on this OS
@@ -60,7 +60,7 @@ git diff
 repository are skipped because they are already current. The `vscode` selection
 includes settings, optional keybindings, and the extension list when the `code`
 command is available. Review Git config and every diff for secrets before
-committing.
+committing. Directory backups such as Neovim exclude nested `.git` metadata.
 
 ## Machine-local configuration
 

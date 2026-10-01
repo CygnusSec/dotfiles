@@ -11,7 +11,7 @@ Usage: ./backup.sh [ITEM ...]
 Choose only what to copy from this machine into the repository. If no ITEM is
 given, an interactive prompt is shown.
 
-Common items: zsh git tmux vscode
+Common items: zsh git tmux nvim vscode
 macOS item:   brew
 Arch items:   hypr waybar kitty
 Special:      all list
@@ -26,7 +26,7 @@ EOF
 }
 
 available_items() {
-  printf '%s\n' zsh git tmux vscode
+  printf '%s\n' zsh git tmux nvim vscode
   case "$OS" in
     Darwin) printf '%s\n' brew ;;
     Linux) printf '%s\n' hypr waybar kitty ;;
@@ -85,7 +85,7 @@ backup_dir() {
     echo "Skipping $label; source already points into this repository."
   else
     mkdir -p "$dst"
-    rsync -a --delete --exclude='.gitkeep' "$src/" "$dst/"
+    rsync -a --delete --exclude='.git/' --exclude='.gitkeep' "$src/" "$dst/"
     echo "Backed up $label."
   fi
 }
@@ -120,6 +120,7 @@ backup_item() {
       backup_file "$HOME/.gitconfig" "$DOTFILES/common/git/.gitconfig" Git
       ;;
     tmux) backup_file "$HOME/.tmux.conf" "$DOTFILES/common/tmux/.tmux.conf" tmux ;;
+    nvim) backup_dir "$HOME/.config/nvim" "$DOTFILES/common/nvim" Neovim ;;
     vscode) backup_vscode ;;
     brew)
       command -v brew >/dev/null 2>&1 || { echo 'Homebrew not found.'; return; }
