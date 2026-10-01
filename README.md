@@ -45,17 +45,22 @@ Pull and relink:
 ./update.sh
 ```
 
-Refresh OS-owned inventories:
+Choose exactly what to copy from the current machine into the repository:
 
 ```bash
-./backup.sh
+./backup.sh                  # interactive selection
+./backup.sh zsh vscode       # selected common configuration
+./backup.sh brew             # Homebrew only on macOS
+./backup.sh hypr waybar      # selected desktop config on Arch
+./backup.sh all              # every item available on this OS
 git diff
 ```
 
-On macOS, `backup.sh` refreshes the Brewfile. On Arch, it copies Hyprland,
-Waybar, and Kitty only when their live directories are not already symlinks into
-this repository. If the `code` command is installed, the extension list is also
-refreshed.
+`backup.sh` never pulls, commits, or pushes. Files that already symlink into the
+repository are skipped because they are already current. The `vscode` selection
+includes settings, optional keybindings, and the extension list when the `code`
+command is available. Review Git config and every diff for secrets before
+committing.
 
 ## Machine-local configuration
 
