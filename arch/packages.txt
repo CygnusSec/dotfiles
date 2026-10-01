@@ -1,0 +1,17 @@
+git
+zsh
+tmux
+neovim
+kitty
+hyprland
+waybar
+fzf
+ripgrep
+fd
+jq
+curl
+wget
+docker
+docker-compose
+openssh
+rsync

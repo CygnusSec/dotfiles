@@ -1,0 +1,22 @@
+{
+    "workbench.colorTheme": "GitHub Light",
+    "atlascode.jira.lastCreatePreSelectedValues": {
+        "siteId": "",
+        "projectKey": "",
+        "issueTypeId": ""
+    },
+    "files.autoSave": "afterDelay",
+    "yaml.disableSchemaDetection": [
+        "**/.github/workflows/*.yml",
+        "**/.github/workflows/*.yaml",
+        "**/.gitea/workflows/*.yml",
+        "**/.gitea/workflows/*.yaml",
+        "**/.forgejo/workflows/*.yml",
+        "**/.forgejo/workflows/*.yaml"
+    ],
+    "terminal.integrated.defaultProfile.linux": "zsh",
+    "terminal.integrated.defaultProfile.osx": "zsh",
+    "chat.viewSessions.orientation": "stacked",
+    "jdk.telemetry.enabled": true,
+    "chatgpt.followUpQueueMode": "steer"
+}

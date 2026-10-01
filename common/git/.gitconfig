@@ -1,0 +1,13 @@
+# Shared Git identity. Credentials remain in the OS credential helper.
+[user]
+	name = Tran Dai Duong
+	email = duongtd@bglobalcorp.com
+
+[init]
+	defaultBranch = main
+
+[pull]
+	rebase = true
+
+[include]
+	path = ~/.gitconfig.local
