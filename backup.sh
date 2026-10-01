@@ -46,6 +46,24 @@ same_file() {
   [[ -e "$src" && -e "$dst" ]] && [[ "$src" -ef "$dst" ]]
 }
 
+find_vscode_cli() {
+  if command -v code >/dev/null 2>&1; then
+    command -v code
+    return
+  fi
+
+  local candidate
+  for candidate in \
+    "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" \
+    "$HOME/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"; do
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return
+    fi
+  done
+  return 1
+}
+
 backup_file() {
   local src=$1 dst=$2 label=$3
   if [[ ! -f "$src" ]]; then
@@ -73,7 +91,7 @@ backup_dir() {
 }
 
 backup_vscode() {
-  local user_dir
+  local user_dir code_cli
   case "$OS" in
     Darwin) user_dir="$HOME/Library/Application Support/Code/User" ;;
     Linux) user_dir="$HOME/.config/Code/User" ;;
@@ -85,12 +103,12 @@ backup_vscode() {
     backup_file "$user_dir/keybindings.json" \
       "$DOTFILES/common/vscode/keybindings.json" 'VS Code keybindings'
   fi
-  if command -v code >/dev/null 2>&1; then
-    code --list-extensions | LC_ALL=C sort > \
+  if code_cli=$(find_vscode_cli); then
+    "$code_cli" --list-extensions | LC_ALL=C sort > \
       "$DOTFILES/common/vscode/extensions.txt"
-    echo 'Backed up VS Code extensions.'
+    echo "Backed up VS Code extensions using: $code_cli"
   else
-    echo 'VS Code CLI not found; extension list unchanged.'
+    echo 'VS Code CLI not found in PATH or the standard macOS app location; extension list unchanged.'
   fi
 }
 
