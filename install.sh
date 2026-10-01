@@ -92,6 +92,8 @@ find_vscode_cli() {
 
 install_vscode() {
   local user_dir code_cli ext ext_file="$DOTFILES/common/vscode/extensions.txt"
+  local installed_extensions=''
+  local -a failed_extensions=()
   case "$OS" in
     Darwin) user_dir="$HOME/Library/Application Support/Code/User" ;;
     Linux) user_dir="$HOME/.config/Code/User" ;;
@@ -101,10 +103,25 @@ install_vscode() {
     link_file "$DOTFILES/common/vscode/keybindings.json" "$user_dir/keybindings.json"
   fi
   if code_cli=$(find_vscode_cli) && [[ -f "$ext_file" ]]; then
+    if ! "$DRY_RUN"; then
+      installed_extensions=$("$code_cli" --list-extensions 2>/dev/null || true)
+    fi
     while IFS= read -r ext; do
       [[ -z "$ext" || "$ext" == \#* ]] && continue
-      run "$code_cli" --install-extension "$ext"
+      if ! "$DRY_RUN" && printf '%s\n' "$installed_extensions" | grep -Fxiq -- "$ext"; then
+        printf 'Already installed: %s\n' "$ext"
+        continue
+      fi
+      if ! run "$code_cli" --install-extension "$ext"; then
+        failed_extensions+=("$ext")
+      fi
     done < "$ext_file"
+    if [[ ${#failed_extensions[@]} -gt 0 ]]; then
+      printf '\nSkipped %d unavailable or incompatible extension(s):\n' \
+        "${#failed_extensions[@]}" >&2
+      printf '  - %s\n' "${failed_extensions[@]}" >&2
+      echo 'Other VS Code extensions were still processed.' >&2
+    fi
   else
     echo 'VS Code CLI not found; skipping extensions.'
   fi

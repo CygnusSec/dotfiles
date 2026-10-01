@@ -24,6 +24,9 @@ cd "$HOME/dotfiles"
 
 Running without item names opens an interactive selection. Existing destinations
 are renamed to timestamped `*.backup.YYYYmmddHHMMSS` files before linking.
+VS Code extensions already installed are skipped. Extensions unavailable in the
+current editor marketplace or incompatible with the current OS are reported at
+the end without stopping the remaining installation.
 
 Package installation and macOS preference changes are explicit:
 
