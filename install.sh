@@ -2,29 +2,45 @@
 set -euo pipefail
 
 DOTFILES=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+OS=$(uname -s)
 DRY_RUN=false
-INSTALL_PACKAGES=false
-APPLY_DEFAULTS=false
+items=()
 
 usage() {
   cat <<'EOF'
-Usage: ./install.sh [--dry-run] [--packages] [--defaults]
+Usage: ./install.sh [--dry-run] [ITEM ...]
 
-  --dry-run   Print actions without changing files or installing anything.
-  --packages  Install packages from Brewfile or arch/packages.txt.
-  --defaults  Apply macOS defaults (macOS only).
+Choose only what to install. With no ITEM, an interactive prompt is shown.
+
+Common items: zsh git tmux nvim vscode
+macOS items:  brew defaults
+Arch items:   hypr waybar kitty packages
+Special:      all list
+
+Examples:
+  ./install.sh zsh nvim vscode
+  ./install.sh --dry-run brew
+  ./install.sh packages hypr waybar
+
+Existing destinations are moved to timestamped backup files before linking.
 EOF
 }
 
-for arg in "$@"; do
-  case "$arg" in
-    --dry-run) DRY_RUN=true ;;
-    --packages) INSTALL_PACKAGES=true ;;
-    --defaults) APPLY_DEFAULTS=true ;;
-    -h|--help) usage; exit 0 ;;
-    *) printf 'Unknown option: %s\n' "$arg" >&2; usage >&2; exit 2 ;;
+available_items() {
+  printf '%s\n' zsh git tmux nvim vscode
+  case "$OS" in
+    Darwin) printf '%s\n' brew defaults ;;
+    Linux) printf '%s\n' hypr waybar kitty packages ;;
   esac
-done
+}
+
+is_available() {
+  local wanted=$1 item
+  while IFS= read -r item; do
+    [[ "$wanted" == "$item" ]] && return 0
+  done < <(available_items)
+  return 1
+}
 
 info() { printf '\n==> %s\n' "$1"; }
 run() {
@@ -51,75 +67,130 @@ link_file() {
   if [[ -e "$dst" || -L "$dst" ]]; then
     backup="${dst}.backup.$(date +%Y%m%d%H%M%S)"
     run mv "$dst" "$backup"
-    printf 'Backed up: %s -> %s\n' "$dst" "$backup"
+    if "$DRY_RUN"; then
+      printf 'Would back up: %s -> %s\n' "$dst" "$backup"
+    else
+      printf 'Backed up: %s -> %s\n' "$dst" "$backup"
+    fi
   fi
   run ln -s "$src" "$dst"
 }
 
-install_vscode_extensions() {
-  local ext_file="$DOTFILES/common/vscode/extensions.txt" ext
-  command -v code >/dev/null 2>&1 || { echo 'VS Code CLI not found; skipping extensions.'; return; }
-  [[ -f "$ext_file" ]] || return
-  while IFS= read -r ext; do
-    [[ -z "$ext" || "$ext" == \#* ]] && continue
-    run code --install-extension "$ext"
-  done < "$ext_file"
-}
-
-install_common() {
-  info 'Installing common dotfiles'
-  link_file "$DOTFILES/common/zsh/.zshrc" "$HOME/.zshrc"
-  link_file "$DOTFILES/common/git/.gitconfig" "$HOME/.gitconfig"
-  link_file "$DOTFILES/common/tmux/.tmux.conf" "$HOME/.tmux.conf"
-  if [[ -f "$DOTFILES/common/nvim/init.lua" || -f "$DOTFILES/common/nvim/init.vim" ]]; then
-    link_file "$DOTFILES/common/nvim" "$HOME/.config/nvim"
+find_vscode_cli() {
+  if command -v code >/dev/null 2>&1; then
+    command -v code
+    return
   fi
-  install_vscode_extensions
+  local candidate
+  for candidate in \
+    "/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code" \
+    "$HOME/Applications/Visual Studio Code.app/Contents/Resources/app/bin/code"; do
+    [[ -x "$candidate" ]] && { printf '%s\n' "$candidate"; return; }
+  done
+  return 1
 }
 
 install_vscode() {
-  local vscode_dir=$1
-  link_file "$DOTFILES/common/vscode/settings.json" "$vscode_dir/settings.json"
+  local user_dir code_cli ext ext_file="$DOTFILES/common/vscode/extensions.txt"
+  case "$OS" in
+    Darwin) user_dir="$HOME/Library/Application Support/Code/User" ;;
+    Linux) user_dir="$HOME/.config/Code/User" ;;
+  esac
+  link_file "$DOTFILES/common/vscode/settings.json" "$user_dir/settings.json"
   if [[ -f "$DOTFILES/common/vscode/keybindings.json" ]]; then
-    link_file "$DOTFILES/common/vscode/keybindings.json" "$vscode_dir/keybindings.json"
+    link_file "$DOTFILES/common/vscode/keybindings.json" "$user_dir/keybindings.json"
+  fi
+  if code_cli=$(find_vscode_cli) && [[ -f "$ext_file" ]]; then
+    while IFS= read -r ext; do
+      [[ -z "$ext" || "$ext" == \#* ]] && continue
+      run "$code_cli" --install-extension "$ext"
+    done < "$ext_file"
+  else
+    echo 'VS Code CLI not found; skipping extensions.'
   fi
 }
 
-install_arch() {
-  info 'Installing Arch Linux configuration'
-  if "$INSTALL_PACKAGES"; then
-    command -v pacman >/dev/null 2>&1 || { echo 'pacman not found.' >&2; exit 1; }
-    run sudo pacman -Syu --needed
-    if [[ -s "$DOTFILES/arch/packages.txt" ]]; then
-      if "$DRY_RUN"; then
-        echo "DRY-RUN: sudo pacman -S --needed - < $DOTFILES/arch/packages.txt"
-      else
-        sudo pacman -S --needed - < "$DOTFILES/arch/packages.txt"
+install_packages() {
+  case "$OS" in
+    Darwin)
+      command -v brew >/dev/null 2>&1 || { echo 'Homebrew not installed.' >&2; exit 1; }
+      run brew bundle --file="$DOTFILES/macos/Brewfile"
+      ;;
+    Linux)
+      command -v pacman >/dev/null 2>&1 || { echo 'pacman not found.' >&2; exit 1; }
+      run sudo pacman -Syu --needed
+      if [[ -s "$DOTFILES/arch/packages.txt" ]]; then
+        if "$DRY_RUN"; then
+          echo "DRY-RUN: sudo pacman -S --needed - < $DOTFILES/arch/packages.txt"
+        else
+          sudo pacman -S --needed - < "$DOTFILES/arch/packages.txt"
+        fi
       fi
-    fi
-  fi
-  link_file "$DOTFILES/arch/hypr" "$HOME/.config/hypr"
-  link_file "$DOTFILES/arch/waybar" "$HOME/.config/waybar"
-  link_file "$DOTFILES/arch/kitty" "$HOME/.config/kitty"
-  install_vscode "$HOME/.config/Code/User"
+      ;;
+  esac
 }
 
-install_macos() {
-  info 'Installing macOS configuration'
-  if "$INSTALL_PACKAGES"; then
-    command -v brew >/dev/null 2>&1 || { echo 'Homebrew not installed.' >&2; exit 1; }
-    run brew bundle --file="$DOTFILES/macos/Brewfile"
-  fi
-  install_vscode "$HOME/Library/Application Support/Code/User"
-  if "$APPLY_DEFAULTS"; then
-    run "$DOTFILES/macos/macos-defaults.sh"
-  fi
+install_item() {
+  info "Installing $1"
+  case "$1" in
+    zsh) link_file "$DOTFILES/common/zsh/.zshrc" "$HOME/.zshrc" ;;
+    git) link_file "$DOTFILES/common/git/.gitconfig" "$HOME/.gitconfig" ;;
+    tmux) link_file "$DOTFILES/common/tmux/.tmux.conf" "$HOME/.tmux.conf" ;;
+    nvim) link_file "$DOTFILES/common/nvim" "$HOME/.config/nvim" ;;
+    vscode) install_vscode ;;
+    brew|packages) install_packages ;;
+    defaults) run "$DOTFILES/macos/macos-defaults.sh" ;;
+    hypr) link_file "$DOTFILES/arch/hypr" "$HOME/.config/hypr" ;;
+    waybar) link_file "$DOTFILES/arch/waybar" "$HOME/.config/waybar" ;;
+    kitty) link_file "$DOTFILES/arch/kitty" "$HOME/.config/kitty" ;;
+  esac
 }
 
-install_common
-case "$(uname -s)" in
-  Linux) install_arch ;;
-  Darwin) install_macos ;;
-  *) printf 'Unsupported OS: %s\n' "$(uname -s)" >&2; exit 1 ;;
+case "$OS" in
+  Darwin|Linux) ;;
+  *) printf 'Unsupported OS: %s\n' "$OS" >&2; exit 1 ;;
 esac
-info 'Dotfiles installation completed.'
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --dry-run) DRY_RUN=true ;;
+    --packages) items+=("$([[ "$OS" == Darwin ]] && echo brew || echo packages)") ;;
+    --defaults) items+=(defaults) ;;
+    -h|--help) usage; exit 0 ;;
+    list|--list) available_items; exit 0 ;;
+    --*) printf 'Unknown option: %s\n' "$1" >&2; usage >&2; exit 2 ;;
+    *) items+=("$1") ;;
+  esac
+  shift
+done
+
+if [[ ${#items[@]} -eq 0 ]]; then
+  echo 'Available install items:'
+  available_items | sed 's/^/  - /'
+  printf 'Enter one or more names separated by spaces (or all): '
+  IFS=' ' read -r -a items
+fi
+
+if [[ ${#items[@]} -eq 0 ]]; then
+  echo 'Nothing selected.'
+  exit 0
+fi
+
+if [[ " ${items[*]} " == *' all '* ]]; then
+  items=()
+  while IFS= read -r item; do items+=("$item"); done < <(available_items)
+fi
+
+for item in "${items[@]}"; do
+  if ! is_available "$item"; then
+    printf 'Unknown or unavailable item on %s: %s\n' "$OS" "$item" >&2
+    available_items | sed 's/^/  - /' >&2
+    exit 2
+  fi
+done
+
+for item in "${items[@]}"; do
+  install_item "$item"
+done
+
+info 'Selected dotfiles installation completed.'

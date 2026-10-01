@@ -17,20 +17,22 @@ macos/    Homebrew bundle and optional macOS defaults
 ```bash
 git clone git@github.com:CygnusSec/dotfiles.git "$HOME/dotfiles"
 cd "$HOME/dotfiles"
-./install.sh --dry-run
-./install.sh
+./install.sh list
+./install.sh --dry-run zsh nvim vscode
+./install.sh zsh nvim vscode
 ```
 
-The default run only creates symlinks and installs VS Code extensions already
-listed in `common/vscode/extensions.txt`. Existing destinations are renamed to
-timestamped `*.backup.YYYYmmddHHMMSS` files first.
+Running without item names opens an interactive selection. Existing destinations
+are renamed to timestamped `*.backup.YYYYmmddHHMMSS` files before linking.
 
 Package installation and macOS preference changes are explicit:
 
 ```bash
-./install.sh --packages          # Homebrew on macOS, pacman on Arch
-./install.sh --defaults          # apply Finder defaults on macOS
-./install.sh --packages --defaults
+./install.sh brew                # Homebrew bundle on macOS
+./install.sh defaults            # Finder defaults on macOS
+./install.sh packages            # pacman package list on Arch
+./install.sh hypr waybar kitty   # selected Arch desktop configuration
+./install.sh all                 # every item available on this OS
 ```
 
 The installer detects `Darwin` or `Linux`. It can be run repeatedly; links that
